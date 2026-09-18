@@ -682,50 +682,72 @@ class Plugin {
 	 *
 	 * @return bool
 	 */
-	public function notify_log( $user_login ) {
 
-		if ( ! $user_login ) {
-			return false;
-		}
+    public function notify_log( $user_login ) {
 
-		$log = $option = $this->get_option( 'wps_limit_login_logged' );
-		if ( ! is_array( $log ) ) {
-			$log = array();
-		}
-		$ip = $this->get_address();
+        if ( empty( $user_login ) || ! is_string( $user_login ) ) {
+            return false;
+        }
 
-		/* can be written much simpler, if you do not mind php warnings */
-		if ( ! isset( $log[ $ip ] ) ) {
-			$log[ $ip ] = array();
-		}
+        // Normalize and validate username.
+        $user_login = sanitize_user( $user_login, true );
 
-		if ( ! isset( $log[ $ip ][ $user_login ] ) ) {
-			$log[ $ip ][ $user_login ] = array( 'counter' => 0 );
-		} elseif ( ! is_array( $log[ $ip ][ $user_login ] ) ) {
-			$log[ $ip ][ $user_login ] = array(
-				'counter' => $log[ $ip ][ $user_login ],
-			);
-		}
+        if ( empty( $user_login ) ) {
+            return false;
+        }
 
-		$log[ $ip ][ $user_login ]['counter'] ++;
-		$log[ $ip ][ $user_login ]['date'] = time();
+        $option = $this->get_option( 'wps_limit_login_logged' );
 
-		if ( isset( $_POST['woocommerce-login-nonce'] ) ) {
-			$gateway = 'WooCommerce';
-		} elseif ( isset( $GLOBALS['wp_xmlrpc_server'] ) && is_object( $GLOBALS['wp_xmlrpc_server'] ) ) {
-			$gateway = 'XMLRPC';
-		} else {
-			$gateway = 'WP Login';
-		}
+        $log = is_array( $option ) ? $option : array();
 
-		$log[ $ip ][ $user_login ]['gateway'] = $gateway;
+        // Validate IP address.
+        $ip = $this->get_address();
 
-		if ( $option === false ) {
-			$this->add_option( 'wps_limit_login_logged', $log );
-		} else {
-			$this->update_option( 'wps_limit_login_logged', $log );
-		}
-	}
+        if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+            return false;
+        }
+
+        if ( ! isset( $log[ $ip ] ) || ! is_array( $log[ $ip ] ) ) {
+            $log[ $ip ] = array();
+        }
+
+        if (
+                ! isset( $log[ $ip ][ $user_login ] ) ||
+                ! is_array( $log[ $ip ][ $user_login ] )
+        ) {
+            $log[ $ip ][ $user_login ] = array(
+                    'counter' => 0,
+            );
+        }
+
+        if ( ! isset( $log[ $ip ][ $user_login ]['counter'] ) ) {
+            $log[ $ip ][ $user_login ]['counter'] = 0;
+        }
+
+        $log[ $ip ][ $user_login ]['counter']++;
+        $log[ $ip ][ $user_login ]['date'] = time();
+
+        if ( isset( $_POST['woocommerce-login-nonce'] ) ) {
+            $gateway = 'WooCommerce';
+        } elseif (
+                isset( $GLOBALS['wp_xmlrpc_server'] ) &&
+                is_object( $GLOBALS['wp_xmlrpc_server'] )
+        ) {
+            $gateway = 'XMLRPC';
+        } else {
+            $gateway = 'WP Login';
+        }
+
+        $log[ $ip ][ $user_login ]['gateway'] = $gateway;
+
+        if ( false === $option ) {
+            $this->add_option( 'wps_limit_login_logged', $log );
+        } else {
+            $this->update_option( 'wps_limit_login_logged', $log );
+        }
+
+        return true;
+    }
 
 	/**
 	 * Check if IP is whitelisted.
@@ -1236,42 +1258,89 @@ class Plugin {
 		echo '<div id="message" class="updated fade"><p>' . $msg . '</p></div>';
 	}
 
-	/**
-	 * @param $log
-	 *
-	 * @return array
-	 */
-	public static function sorted_log_by_date( $log ) {
-		$new_log = array();
 
-		if ( ! is_array( $log ) || empty( $log ) ) {
-			return $new_log;
-		}
+    /**
+     * Sort log entries by date.
+     *
+     * @param mixed $log Log data.
+     *
+     * @return array
+     */
+    public static function sorted_log_by_date( $log ) {
 
-		foreach ( $log as $ip => $users ) {
-			if ( empty( $users ) ) {
-				continue;
-			}
+        $new_log = array();
 
-			foreach ( $users as $user_name => $info ) {
-				if ( ! is_array( $info ) ) {
-					continue;
-				}
+        if ( ! is_array( $log ) || empty( $log ) ) {
+            return $new_log;
+        }
 
-				$new_log[ $info['date'] ] = array(
-					'ip'       => $ip,
-					'username' => $user_name,
-					'counter'  => $info['counter'],
-					'gateway'  => ( isset( $info['gateway'] ) ) ? $info['gateway'] : '-',
-					'unlocked' => ! empty( $info['unlocked'] ),
-				);
-			}
-		}
+        foreach ( $log as $ip => $users ) {
 
-		krsort( $new_log );
+            if ( ! is_array( $users ) || empty( $users ) ) {
+                continue;
+            }
 
-		return $new_log;
-	}
+            // Validate IP address.
+            if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+                continue;
+            }
+
+            foreach ( $users as $user_name => $info ) {
+
+                if ( ! is_array( $info ) ) {
+                    continue;
+                }
+
+                // Validate required date.
+                if (
+                        ! isset( $info['date'] ) ||
+                        ! is_numeric( $info['date'] )
+                ) {
+                    continue;
+                }
+
+                $date = (int) $info['date'];
+
+                // Validate counter.
+                $counter = isset( $info['counter'] )
+                        ? absint( $info['counter'] )
+                        : 0;
+
+                // Validate gateway.
+                $gateway = isset( $info['gateway'] )
+                        ? sanitize_text_field( $info['gateway'] )
+                        : '-';
+
+                // Normalize username for internal use.
+                $username = is_string( $user_name )
+                        ? sanitize_user( $user_name, true )
+                        : '';
+
+                if ( '' === $username ) {
+                    continue;
+                }
+
+                // Avoid overwriting entries with identical timestamps.
+                $key = $date;
+
+                while ( isset( $new_log[ $key ] ) ) {
+                    $key++;
+                }
+
+                $new_log[ $key ] = array(
+                        'ip'       => $ip,
+                        'username' => $username,
+                        'counter'  => $counter,
+                        'gateway'  => $gateway,
+                        'unlocked' => ! empty( $info['unlocked'] ),
+                );
+            }
+        }
+
+        krsort( $new_log, SORT_NUMERIC );
+
+        return $new_log;
+    }
 
 	public function login_form() {
 		$wps_limit_login_show_credit_link = $this->get_option( 'wps_limit_login_show_credit_link' );

@@ -50,7 +50,7 @@ $lockouts = (array) $this->get_option( 'wps_limit_login_lockouts' ); ?>
 </div>
 
 <?php if ( is_array( $log ) && ! empty( $log ) ) : ?>
-    <form action="<?php echo $this->get_wps_limit_login_options_page_uri() . '&tab=log'; ?>" method="post">
+    <form action="<?php echo esc_url( $this->get_wps_limit_login_options_page_uri() . '&tab=log' ); ?>" method="post">
         <?php wp_nonce_field( 'wps-limit-login-settings' ); ?>
         <input type="hidden" value="true" name="clear_log"/>
         <p class="submit">
@@ -72,12 +72,41 @@ $lockouts = (array) $this->get_option( 'wps_limit_login_lockouts' ); ?>
                 <tr>
                     <td class="limit-login-date"><span class="display-mobile"><?php _e( 'Date', 'wps-limit-login' ) . ' : '; ?></span><?php echo date_i18n( 'F d, Y H:i', $date ); ?></td>
                     <td class="limit-login-ip"><span class="display-mobile"><?php echo _x( 'IP', "Internet address", 'wps-limit-login' ) . ' : '; ?></span><?php echo esc_html( $user_info['ip'] ); ?></td>
-                    <td class="limit-login-max"><span class="display-mobile"><?php _e( 'Users' ) . ' : '; ?></span><?php echo $user_info['username'] . ' (' . $user_info['counter'] . ' ' . _n( 'lockout', 'lockouts', $user_info['counter'], 'wps-limit-login' ) . ')' ?></td>
-                    <td class="limit-login-gateway"><span class="display-mobile"><?php _e( 'Gateway', 'wps-limit-login' ) . ' : '; ?></span><?php echo $user_info['gateway']; ?></td>
+                    <td class="limit-login-max">
+                        <span class="display-mobile">
+                            <?php echo esc_html__( 'Users', 'wps-limit-login' ) . ' : '; ?>
+                        </span>
+                        <?php
+                        echo esc_html( $user_info['username'] );
+                        echo ' (';
+                        echo absint( $user_info['counter'] );
+                        echo ' ';
+                        echo esc_html(
+                                _n(
+                                        'lockout',
+                                        'lockouts',
+                                        absint( $user_info['counter'] ),
+                                        'wps-limit-login'
+                                )
+                        );
+                        echo ')';
+                        ?>
+                    </td>
+                    <td class="limit-login-gateway">
+                        <span class="display-mobile">
+                            <?php echo esc_html__( 'Gateway', 'wps-limit-login' ) . ' : '; ?>
+                        </span>
+                        <?php echo esc_html( $user_info['gateway'] ); ?>
+                    </td>
                     <?php if ( ! empty( $lockouts[ $user_info['ip'] ] ) && $lockouts[ $user_info['ip'] ] > time() ) : ?>
-                        <td class="wps_unlock"><a href="#" class="button wps-limit-login-unlock"
-                                                  data-ip="<?php echo esc_attr( $user_info['ip'] ) ?>"
-                                                  data-username="<?php echo esc_attr( $user_info['username'] ) ?>"><?php _e( 'Unlock', 'wps-limit-login' ); ?></a></td>
+                        <td class="wps_unlock">
+                            <a href="#"
+                               class="button wps-limit-login-unlock"
+                               data-ip="<?php echo esc_attr( $user_info['ip'] ); ?>"
+                               data-username="<?php echo esc_attr( $user_info['username'] ); ?>">
+                                <?php echo esc_html__( 'Unlock', 'wps-limit-login' ); ?>
+                            </a>
+                        </td>
                     <?php else : ?>
                         <td class="wps_unlocked"><span><?php _e( 'Unlocked', 'wps-limit-login' ); ?></span></td>
                     <?php endif ?>
@@ -97,15 +126,18 @@ $lockouts = (array) $this->get_option( 'wps_limit_login_lockouts' ); ?>
 
             $.post(ajaxurl, {
                 action: 'wps-limit-login-unlock',
-                nonce: '<?php echo wp_create_nonce( 'wps-limit-login-unlock' ) ?>',
+                nonce: <?php echo wp_json_encode( wp_create_nonce( 'wps-limit-login-unlock' ) ); ?>,
                 ip: btn.data('ip'),
                 username: btn.data('username')
             })
                 .done(function (data) {
                     if (data === true)
                         btn.fadeOut(function () {
-                            $(this).parent().removeClass('wps_unlock').addClass('wps_unlocked');
-                            $(this).parent().html('<?php echo '<span>' . __( 'Unlocked', 'wps-limit-login' ) . '</span>'; ?>')
+                            $(this).parent()
+                                .removeClass('wps_unlock')
+                                .addClass('wps_unlocked')
+                                .empty()
+                                .append($('<span>').text('<?php echo esc_js( __( 'Unlocked', 'wps-limit-login' ) ); ?>'));
                         });
                     else
                         fail();
