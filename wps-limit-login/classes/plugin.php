@@ -1041,11 +1041,38 @@ class Plugin {
 	 */
 	public function get_address( $type_name = '' ) {
 
-		if ( isset( $_SERVER['REMOTE_ADDR'] ) ) {
-			return $_SERVER['REMOTE_ADDR'];
-		}
+        $ip = isset( $_SERVER['REMOTE_ADDR'] )
+                ? trim( $_SERVER['REMOTE_ADDR'] )
+                : '';
 
-		return $type_name;
+        if ( empty( $ip ) ) {
+            $ip = $type_name;
+        }
+
+        // Validate the IP address.
+        if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+            return $type_name;
+        }
+
+        // Normalize IPv6 addresses to their /64 prefix.
+        if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+
+            $packed_ip = inet_pton( $ip );
+
+            if ( false !== $packed_ip && 16 === strlen( $packed_ip ) ) {
+
+                // Preserve the first 64 bits and zero the remaining 64 bits.
+                $network = substr( $packed_ip, 0, 8 ) . str_repeat( "\0", 8 );
+
+                $normalized_ip = inet_ntop( $network );
+
+                if ( false !== $normalized_ip ) {
+                    return $normalized_ip . '/64';
+                }
+            }
+        }
+
+        return $ip;
 	}
 
 	/**

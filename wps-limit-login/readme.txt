@@ -3,8 +3,8 @@ Contributors: WPServeur, NicolasKulka, wpformation
 Donate link: https://www.paypal.me/donateWPServeur
 Tags: login, limit login, security, authentication, WPS Limit Login, wps-limit-login, Limit Login Attempts, Limit Login Attempts Reloaded, Limit Login Attempts Revamped, Limit Login Attempts Renovated, Limit Login Attempts Updated, Better Limit Login Attempts, Limit Login Attempts Renewed, Limit Login Attempts Upgraded, limit, wpserveur
 Requires at least: 4.2
-Tested up to: 7.1
-Stable tag: 1.5.9.4
+Tested up to: 7.2
+Stable tag: 1.5.9.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -97,6 +97,10 @@ This plugin is only maintained, which means we do not guarantee free support. Co
 5. WP Login
 
 == Changelog ==
+
+= 1.5.9.5 =
+* Fix vulnerability with IPV6 (Thanks Wade Sparks de vulncheck.com)
+* Tested up to 7.2
 
 = 1.5.9.4 =
 * Fix vulnerability (Thanks Ananda Dhakal - Patchstack) : Vulnérabilité XSS stockée non authentifiée via un nom d'utilisateur ayant échoué à la connexion dans le journal de verrouillage.
